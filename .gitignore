@@ -2,5 +2,6 @@
 *.docx
 *.docx#
 *.csv
+*.csv#
 __pycache__/
 credentials.py

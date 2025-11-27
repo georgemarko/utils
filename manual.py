@@ -14,7 +14,7 @@ from credentials import MYUSERNAME, MYPASSWORD
 
 # Set to True for SEEMP I-II
 # Set to False for SEEMP PART III
-SEEMP_VERSION_1_2 = False
+SEEMP_VERSION_1_2 = True
 
 ######################################################
 
@@ -23,7 +23,7 @@ SEEMP_VERSION_1_2 = False
 # If SELECT_ONE_IMO is True then only the VESSEL_IMO is used
 
 SELECT_ONE_IMO = True
-VESSEL_IMO = "9723007"
+VESSEL_IMO = "9782259"
 COMPANY_NAME = "DYNACOM"
 
 ######################################################
@@ -229,13 +229,13 @@ def format_vessel_placeholder(vessel, csv_dwg):
         elif field == "deadWeightValue":
             num = vessel.get("deadWeight")
             if num is not None:
-                value = f"{num:,.2f}".rstrip("0").rstrip(".")
+                value = f"{num:,}"
             else:
                 value = "N/A"
         elif field == "deadWeight":
             num = vessel.get(field)
             if num is not None:
-                val = f"{num:,.2f}".rstrip(".")
+                val = f"{num:,}"
                 value = f"{val} MT"
             else:
                 value = "N/A"
@@ -361,53 +361,86 @@ def format_emission_sources(emission_sources, verifier=None):
 
         parts = []
         
-        if "boiler" in original_type:
+        # Check if technical description exists for boilers (after stripping whitespace)
+        tech_desc = source.get("technicalDescription", "").strip() if "boiler" in original_type and source.get("technicalDescription") else ""
+        
+        if tech_desc:
+            # Use technical description as the whole text for boilers
+            details = tech_desc
+        elif "boiler" in original_type:
+            # For boilers without technical description
             rp = source.get("ratingPowerValue")
             rpu = source.get("ratingPowerUnit", "")
             if rp:
                 parts.append(f"Capacity {rp} {rpu}".strip())
             parts.append("Oil fired boiler")
+            
+            rpm = source.get("rpm")
+            if rpm:
+                parts.append(f"at {rpm} RPM")
+            sfocv = source.get("sfocValue")
+            sfocmax = source.get("sfocMaxValue")
+            sfocunit = source.get("sfocUnit", "")
+            if sfocv:
+                foc_label = "FOC"
+                sfoc_text = f"{foc_label} {sfocv}"
+                if sfocmax:
+                    sfoc_text += f"-{sfocmax}"
+                if sfocunit:
+                    sfoc_text += f" {sfocunit}"
+                parts.append(sfoc_text)
+            year = source.get("yearOfInstallation")
+            if year:
+                parts.append(f"Installation Year {year}")
+            serial = source.get("identificationNumber")
+            if serial:
+                parts.append(f"Serial No. {serial}")
+            
+            details = ", ".join(parts)
         else:
+            # For other engine types
             rp = source.get("ratingPowerValue") 
             rpu = source.get("ratingPowerUnit", "")
             if rp:
                 parts.append(f"{rp} {rpu}".strip())
-        
-        rpm = source.get("rpm")
-        if rpm:
-            parts.append(f"at {rpm} RPM")
-        sfocv = source.get("sfocValue")
-        sfocmax = source.get("sfocMaxValue")
-        sfocunit = source.get("sfocUnit", "")
-        if sfocv:
-            foc_label = "FOC" if "boiler" in original_type or "inert" in original_type or "incinerator" in original_type else "SFOC"
-            sfoc_text = f"{foc_label} {sfocv}"
-            if sfocmax:
-                sfoc_text += f"-{sfocmax}"
-            if sfocunit:
-                sfoc_text += f" {sfocunit}"
+            
+            rpm = source.get("rpm")
+            if rpm:
+                parts.append(f"at {rpm} RPM")
+            sfocv = source.get("sfocValue")
+            sfocmax = source.get("sfocMaxValue")
+            sfocunit = source.get("sfocUnit", "")
+            if sfocv:
+                foc_label = "SFOC"
+                sfoc_text = f"{foc_label} {sfocv}"
+                if sfocmax:
+                    sfoc_text += f"-{sfocmax}"
+                if sfocunit:
+                    sfoc_text += f" {sfocunit}"
 
-            try:
-                verifier_val = verifier.strip().lower() if isinstance(verifier, str) and verifier is not None else ""
-            except Exception:
-                verifier_val = ""
-            if "auxiliary" in normalized_type.lower():
-                mcr_note = "at 50% MCR" if verifier_val == "rina" else "at 100% MCR"
-                sfoc_text = f"{sfoc_text} {mcr_note}"
+                try:
+                    verifier_val = verifier.strip().lower() if isinstance(verifier, str) and verifier is not None else ""
+                except Exception:
+                    verifier_val = ""
+                if "auxiliary" in normalized_type.lower():
+                    mcr_note = "at 50% MCR" if verifier_val == "rina" else "at 100% MCR"
+                    sfoc_text = f"{sfoc_text} {mcr_note}"
 
-            parts.append(sfoc_text)
-        year = source.get("yearOfInstallation")
-        if year:
-            parts.append(f"Installation Year {year}")
-        serial = source.get("identificationNumber")
-        if serial:
-            parts.append(f"Serial No. {serial}")
+                parts.append(sfoc_text)
+            year = source.get("yearOfInstallation")
+            if year:
+                parts.append(f"Installation Year {year}")
+            serial = source.get("identificationNumber")
+            if serial:
+                parts.append(f"Serial No. {serial}")
 
-        if original_type in ENGINE_CONFIG:
-            cfg = ENGINE_CONFIG[original_type]
-            parts.append(f"{cfg['cylinders']}-cylinder, {cfg['stroke']}-stroke")
+            if original_type in ENGINE_CONFIG:
+                cfg = ENGINE_CONFIG[original_type]
+                parts.append(f"{cfg['cylinders']}-cylinder, {cfg['stroke']}-stroke")
 
-        lines.append({"MODEL": name, "DETAILS": ", ".join(parts)})
+            details = ", ".join(parts)
+
+        lines.append({"MODEL": name, "DETAILS": details})
     
     return lines
 
