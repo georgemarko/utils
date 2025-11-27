@@ -38,6 +38,10 @@ EMISSION_SOURCES_URL = f"{API_BASE_URL}/emission-sources"
 CSV_FILE = "vessels.csv"
 WORD_TEMPLATE = "model.docx" if SEEMP_VERSION_1_2 else "model_3.docx"
 TEMP_DIR = "temp_docx_extract"
+RESULTS_DIR = "results"
+
+if not os.path.exists(RESULTS_DIR):
+    os.makedirs(RESULTS_DIR)
 
 
 
@@ -626,7 +630,6 @@ for imo, csv_row in imos.items():
     vessel = get_vessel(imo)
     print(f"Processing vessel with IMO {imo}")
     csv_dwg = csv_row.get("DWG NO.", "UNKNOWN")
-    print(f"DWG is {csv_dwg}")
     placeholders = format_vessel_placeholder(vessel, csv_dwg)
 
     if SEEMP_VERSION_1_2:
@@ -659,29 +662,22 @@ for imo, csv_row in imos.items():
         populate_table(doc, emis_rows, emis_placeholders)
 
         output_filename = f"{csv_dwg} {vessel['vesselName']} – SEEMP I-II Issue No. {issue_num}"
-        output_doc = f"{output_filename}.docx"
-        output_pdf = f"{output_filename}.pdf"
-        doc.save(output_doc)
-        print(f"✅ Saved {output_doc}")
+        doc.save(os.path.join(RESULTS_DIR, f"{output_filename}.docx"))
 
         if os.path.exists("temp.docx"):
             os.remove("temp.docx")
-        
-        # Convert to PDF
-        # convert(output_doc, output_pdf)
-        # print(f"✅ Saved {output_pdf}")
         
     else:
         doc = Document(WORD_TEMPLATE)
         issue_num = get_issue_number(doc)
 
         output_filename = f"{csv_dwg} {vessel['vesselName']} – SEEMP PART III Issue No. {issue_num}"
-        output_doc = f"{output_filename}.docx"
-        output_pdf = f"{output_filename}.pdf"
+        process_docx(WORD_TEMPLATE, os.path.join(RESULTS_DIR, f"{output_filename}.docx"), placeholders)
 
-        process_docx(WORD_TEMPLATE, output_doc, placeholders)
-        print(f"✅ Saved {output_doc}")
-        
-        # Convert to PDF
-        # convert(output_doc, output_pdf)
-        # print(f"✅ Saved {output_pdf}")
+    output_doc = os.path.join(RESULTS_DIR, f"{output_filename}.docx")
+    output_pdf = os.path.join(RESULTS_DIR, f"{output_filename}.pdf")
+    print(f"✅ Saved {output_filename}.docx")
+    
+    # Convert to PDF
+    # convert(output_doc, output_pdf)
+    # print(f"✅ Saved {output_filename}.pdf")
