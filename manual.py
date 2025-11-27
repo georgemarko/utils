@@ -27,7 +27,7 @@ INCLUDE_WASTE_INCINERATOR = True
 
 SELECT_ONE_IMO = True
 VESSEL_IMO = "9782259"
-COMPANY_NAME = "DYNACOM"
+COMPANY_NAME = "COMPANY"
 
 ######################################################
 
