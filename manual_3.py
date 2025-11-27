@@ -304,10 +304,7 @@ for imo, csv_row in imos.items():
     doc = Document(WORD_TEMPLATE)
     issue_num = get_issue_number(doc)
 
-    output_filename = f"{csv_dwg} {vessel['vesselName']} – SEEMP III Issue No. {issue_num}"
+    output_filename = f"{csv_dwg} {vessel['vesselName']} – SEEMP PART III Issue No. {issue_num}"
     output_doc = f"{output_filename}.docx"
 
     process_docx(WORD_TEMPLATE, output_doc, placeholders)
-
-
-    break

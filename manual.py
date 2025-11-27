@@ -8,10 +8,8 @@ from docx import Document
 from copy import deepcopy
 from collections import Counter
 from credentials import MYUSERNAME, MYPASSWORD
+#from docx2pdf import convert
 
-############### AUTHENTICATION #######################
-
-######################################################
 
 ############## INPUTS ################################
 
@@ -405,10 +403,8 @@ def format_emission_sources(emission_sources, verifier=None):
                 sfoc_text += f" {sfocunit}"
 
             # For auxiliary engines, append MCR note based on CSV VERIFIER
-            
             try:
                 verifier_val = verifier.strip().lower() if isinstance(verifier, str) and verifier is not None else ""
-                print(verifier_val)
             except Exception:
                 verifier_val = ""
             if "auxiliary" in normalized_type.lower():
@@ -653,7 +649,7 @@ for imo, csv_row in imos.items():
     # Step 5: Save final docx
     output_filename = f"{csv_dwg} {vessel['vesselName']} – SEEMP I-II Issue No. {issue_num}"
     output_doc = f"{output_filename}.docx"
-    # output_pdf =f"{output_filename}.pdf" 
+    #output_pdf =f"{output_filename}.pdf" 
     doc.save(output_doc)
     print(f"✅ Saved {output_doc}")
     
@@ -661,5 +657,4 @@ for imo, csv_row in imos.items():
     if os.path.exists("temp.docx"):
         os.remove("temp.docx")
 
-
-    break
+    #convert(output_doc, output_pdf)
