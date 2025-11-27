@@ -10,6 +10,13 @@ from collections import Counter
 from credentials import MYUSERNAME, MYPASSWORD
 #from docx2pdf import convert
 
+############## CONFIGURATION FLAGS ################################
+
+# Set to True for SEEMP I-II
+# Set to False for SEEMP PART III
+SEEMP_VERSION_1_2 = False
+
+######################################################
 
 ############## INPUTS ################################
 
@@ -26,7 +33,7 @@ COMPANY_NAME = "DYNACOM"
 API_BASE_URL = "https://mariner.alphamrn.com/api"
 EMISSION_SOURCES_URL = f"{API_BASE_URL}/emission-sources"
 CSV_FILE = "vessels.csv"
-WORD_TEMPLATE = "model.docx"
+WORD_TEMPLATE = "model.docx" if SEEMP_VERSION_1_2 else "model_3.docx"
 TEMP_DIR = "temp_docx_extract"
 
 
@@ -58,7 +65,6 @@ HEADERS = {
     "Authorization": f"Bearer {token}",
     "Accept": "application/json"
 }
-
 
 
 # ---------------- PLACEHOLDER MAPPING ----------------
@@ -119,19 +125,16 @@ def recursive_replace(element, placeholders, visited=None):
 
     replaced = False
 
-    # Replace in current text nodes
     t_nodes = list(element.iter("{%s}t" % W_NS))
     if t_nodes:
         if replace_placeholders_in_t_nodes(t_nodes, placeholders):
             replaced = True
 
-    # Recurse into shapes / text boxes
     for drawing in element.iter("{%s}drawing" % W_NS):
         for txbx in drawing.iter("{http://schemas.microsoft.com/office/word/2010/wordprocessingShape}txbxContent"):
             if recursive_replace(txbx, placeholders, visited):
                 replaced = True
 
-    # Recurse into content controls (<w:sdtContent>)
     for sdt in element.iter("{%s}sdtContent" % W_NS):
         if sdt is not element:
             if recursive_replace(sdt, placeholders, visited):
@@ -204,11 +207,9 @@ def format_vessel_placeholder(vessel, csv_dwg):
         if field == "dwg":
             value = csv_dwg
         elif field == "vesselTypeName":
-            # UPPERCASE for {{VSLTYPENAME}}
             value = vessel.get("vesselType", "")
             value = " ".join(word.upper() for word in value.split('_'))
         elif field == "vesselType":
-            # Capitalized for {{VSLTYPE}}
             value = vessel.get("vesselType", "")
             value = " ".join(word.capitalize() for word in value.split('_'))
         elif field == "aEedi":
@@ -219,11 +220,10 @@ def format_vessel_placeholder(vessel, csv_dwg):
             eexi = vessel.get("aEexi")
             value = f"{format_number(eexi)} gr CO2 / ton-mile" if eexi else "N/A"
 
-        # Numbers with thousand separators
         elif field in ["grossTonnage", "netTonnage"]:
             num = vessel.get(field)
             if num is not None:
-                value = f"{num:,.2f}".rstrip("0").rstrip(".")  # preserves decimals if any
+                value = f"{num:,.2f}".rstrip("0").rstrip(".")
             else:
                 value = "N/A"
         elif field == "deadWeightValue":
@@ -235,7 +235,7 @@ def format_vessel_placeholder(vessel, csv_dwg):
         elif field == "deadWeight":
             num = vessel.get(field)
             if num is not None:
-                val = f"{num:,.2f}".rstrip(".")  # preserves decimals if any
+                val = f"{num:,.2f}".rstrip(".")
                 value = f"{val} MT"
             else:
                 value = "N/A"
@@ -271,13 +271,11 @@ def format_fuel_types(emission_sources, include_bio):
         bio_value = "Biofuels"
         type_name = source.get("type")
         if "boiler" in type_name.lower():
-            # Boiler row: HFO populated, others empty as required
             row = {"TYPE": "Fired Boiler",
                    "HFO": "HFO",
                    "LFO": "",
                    "MGO": "MGO / MDO"}
         elif type_name.lower() in ["inert gas generator", "waste incinerator"]:
-            # Inert Gas Generator row: only MGO populated
             row = {"TYPE": type_name,
                    "HFO": "",
                    "LFO": "",
@@ -305,7 +303,6 @@ def format_fuel_types(emission_sources, include_bio):
 
     return data
 
-# Engine type to cylinder/stroke mapping
 ENGINE_CONFIG = {
     "main engine": {"cylinders": 6, "stroke": 2},
     "auxiliary engine": {"cylinders": 6, "stroke": 4},
@@ -316,14 +313,11 @@ def format_emission_sources(emission_sources, verifier=None):
     lines = []
     source_type_order = ['main engine', 'auxiliary engine', 'boiler', 'inert gas generator', 'waste incinerator']
     
-    # Normalize type names and group sources
     normalized_sources = []
     for s in emission_sources:
         original_type = s.get("type", "Unknown").lower()
-        # Normalize boiler types to "Fired Boiler"
         if "boiler" in original_type:
             normalized_type = "Fired Boiler"
-        # Normalize hydraulic power pack to Auxiliary Engine
         elif "hydraulic power pack" in original_type:
             normalized_type = "Auxiliary Engine"
         else:
@@ -335,11 +329,9 @@ def format_emission_sources(emission_sources, verifier=None):
             "original_type": original_type
         })
     
-    # Count occurrences of each normalized type
     type_counts = Counter(item['normalized_type'] for item in normalized_sources)
     type_counters = {t: 0 for t in type_counts}
     
-    # Sort by custom order
     def sort_key(item):
         nt = item['normalized_type'].lower()
         for idx, target in enumerate(source_type_order):
@@ -349,21 +341,17 @@ def format_emission_sources(emission_sources, verifier=None):
     
     normalized_sources.sort(key=sort_key)
     
-    # Build the lines
     for item in normalized_sources:
         source = item['source']
         normalized_type = item['normalized_type']
         original_type = item['original_type']
         
-        # MODEL
         name = normalized_type
         
-        # Add numbering if more than one of this type
         if type_counts[normalized_type] > 1:
             type_counters[normalized_type] += 1
             name += f" No. {type_counters[normalized_type]}"
         
-        # Add manufacturer and model
         if source.get("manufacturer") and source.get("model"):
             name += f" {source['manufacturer']} {source['model']}"
         elif source.get("manufacturer"):
@@ -371,10 +359,8 @@ def format_emission_sources(emission_sources, verifier=None):
         elif source.get("model"):
             name += f" {source['model']}"
 
-        # DETAILS
         parts = []
         
-        # For boilers, add "Capacity" prefix to rating power and "Oil fired boiler" after
         if "boiler" in original_type:
             rp = source.get("ratingPowerValue")
             rpu = source.get("ratingPowerUnit", "")
@@ -394,7 +380,6 @@ def format_emission_sources(emission_sources, verifier=None):
         sfocmax = source.get("sfocMaxValue")
         sfocunit = source.get("sfocUnit", "")
         if sfocv:
-            # Use "FOC" for boilers, "SFOC" for others
             foc_label = "FOC" if "boiler" in original_type or "inert" in original_type or "incinerator" in original_type else "SFOC"
             sfoc_text = f"{foc_label} {sfocv}"
             if sfocmax:
@@ -402,7 +387,6 @@ def format_emission_sources(emission_sources, verifier=None):
             if sfocunit:
                 sfoc_text += f" {sfocunit}"
 
-            # For auxiliary engines, append MCR note based on CSV VERIFIER
             try:
                 verifier_val = verifier.strip().lower() if isinstance(verifier, str) and verifier is not None else ""
             except Exception:
@@ -419,7 +403,6 @@ def format_emission_sources(emission_sources, verifier=None):
         if serial:
             parts.append(f"Serial No. {serial}")
 
-        # Engine-specific description using ENGINE_CONFIG
         if original_type in ENGINE_CONFIG:
             cfg = ENGINE_CONFIG[original_type]
             parts.append(f"{cfg['cylinders']}-cylinder, {cfg['stroke']}-stroke")
@@ -435,27 +418,21 @@ def add_text_with_superscript(paragraph, text, base_run):
     E.g., "m^3/h" becomes "m³/h" with 3 as superscript.
     """
     if '^' not in text:
-        # No superscript needed, just set the text
         base_run.text = text
         return
     
-    # Clear the base run
     base_run.text = ""
     
-    # Split by ^ and process
     parts = text.split('^')
     for idx, part in enumerate(parts):
         if idx == 0:
-            # First part - normal text
             new_run = paragraph.add_run(part)
             new_run.font.name = base_run.font.name
             new_run.font.size = base_run.font.size
             new_run.bold = base_run.bold
             new_run.italic = base_run.italic
         else:
-            # After ^, first character is superscript
             if len(part) > 0:
-                # Superscript character
                 super_run = paragraph.add_run(part[0])
                 super_run.font.superscript = True
                 super_run.font.name = base_run.font.name
@@ -463,7 +440,6 @@ def add_text_with_superscript(paragraph, text, base_run):
                 super_run.bold = base_run.bold
                 super_run.italic = base_run.italic
                 
-                # Rest is normal
                 if len(part) > 1:
                     normal_run = paragraph.add_run(part[1:])
                     normal_run.font.name = base_run.font.name
@@ -484,7 +460,6 @@ def replace_placeholder_preserve_format(paragraph, replacements):
         for key, val in replacements.items():
             if f"{{{{{key}}}}}" in text_buffer:
                 text_buffer = text_buffer.replace(f"{{{{{key}}}}}", val)
-                # Use superscript formatting for text with ^
                 add_text_with_superscript(paragraph, text_buffer, run)
                 for k in range(i+1, j):
                     runs[k].text = ""
@@ -518,7 +493,7 @@ def populate_table(doc, data_rows, placeholders):
 
 def has_bio(doc):
     target_table = None
-    template_row = None  # initialize here!
+    template_row = None
     include_bio = False
 
     for table in doc.tables:
@@ -548,7 +523,7 @@ def get_method_from_placeholder(doc):
                     if row_idx > 0:
                         return table.rows[row_idx - 1].cells[cell_idx].text.strip()
                     else:
-                        return ""  # No cell above, return empty
+                        return ""
     return ""
 
 
@@ -558,7 +533,6 @@ def get_issue_number(doc):
     from that column.
     """
     for table in doc.tables:
-        # Find the row and column index with "Issue Number"
         issue_col_idx = None
         for row in table.rows:
             for cell_idx, cell in enumerate(row.cells):
@@ -569,7 +543,6 @@ def get_issue_number(doc):
             if issue_col_idx is not None:
                 break
         
-        # If found, get the last row's value in that column
         if issue_col_idx is not None:
             for row in reversed(table.rows):
                 cell_value = row.cells[issue_col_idx].text.strip()
@@ -577,7 +550,7 @@ def get_issue_number(doc):
                     return cell_value
     
     print("Issue number not found, using default: 00")
-    return "00"  # Default if not found
+    return "00"
 
 
 def format_other_emission_sources(emission_sources, fired_boiler_method=""):
@@ -609,52 +582,59 @@ for imo, csv_row in imos.items():
     print(f"DWG is {csv_dwg}")
     placeholders = format_vessel_placeholder(vessel, csv_dwg)
 
-    # Step 1: Replace vessel data in template
-    process_docx(WORD_TEMPLATE, "temp.docx", placeholders)
+    if SEEMP_VERSION_1_2:
+        process_docx(WORD_TEMPLATE, "temp.docx", placeholders)
 
-    # Step 2: Load docx to populate tables
-    doc = Document("temp.docx")
+        doc = Document("temp.docx")
 
-    # Step 3: Fuel types table
-    emission_sources = get_emission_sources_for_imo(imo)
+        emission_sources = get_emission_sources_for_imo(imo)
 
-    fired_boiler_method = get_method_from_placeholder(doc)
+        fired_boiler_method = get_method_from_placeholder(doc)
 
-    other_es_rows = format_other_emission_sources(emission_sources, fired_boiler_method)
+        other_es_rows = format_other_emission_sources(emission_sources, fired_boiler_method)
 
-    populate_table(doc, other_es_rows, ["{{ES}}", "{{METHOD}}"])
-    
-    # Get issue number for filename
-    issue_num = get_issue_number(doc)
+        populate_table(doc, other_es_rows, ["{{ES}}", "{{METHOD}}"])
+        
+        issue_num = get_issue_number(doc)
 
-    # --- Detect fuel table and BIO column ---
-    include_bio = has_bio(doc)   # must return (table, row)
+        include_bio = has_bio(doc)
 
-    # --- Build rows for the table using REAL emission source types ---
-    fuel_rows = format_fuel_types(emission_sources, include_bio)
+        fuel_rows = format_fuel_types(emission_sources, include_bio)
 
-    # --- Determine placeholders in that specific table row ---
-    fuel_placeholders = ["{{TYPE}}", "{{HFO}}", "{{LFO}}", "{{MGO}}"]
-    if include_bio:
-        fuel_placeholders.append("{{BIO}}")
+        fuel_placeholders = ["{{TYPE}}", "{{HFO}}", "{{LFO}}", "{{MGO}}"]
+        if include_bio:
+            fuel_placeholders.append("{{BIO}}")
 
-    # --- Populate the fuel types table ---
-    populate_table(doc, fuel_rows, fuel_placeholders)
+        populate_table(doc, fuel_rows, fuel_placeholders)
 
-    # Step 4: Emission sources table
-    emis_rows = format_emission_sources(emission_sources, csv_row.get("VERIFIER", ""))
-    emis_placeholders = ["{{MODEL}}", "{{DETAILS}}"]
-    populate_table(doc, emis_rows, emis_placeholders)
+        emis_rows = format_emission_sources(emission_sources, csv_row.get("VERIFIER", ""))
+        emis_placeholders = ["{{MODEL}}", "{{DETAILS}}"]
+        populate_table(doc, emis_rows, emis_placeholders)
 
-    # Step 5: Save final docx
-    output_filename = f"{csv_dwg} {vessel['vesselName']} – SEEMP I-II Issue No. {issue_num}"
-    output_doc = f"{output_filename}.docx"
-    #output_pdf =f"{output_filename}.pdf" 
-    doc.save(output_doc)
-    print(f"✅ Saved {output_doc}")
-    
-    # Clean up temp file
-    if os.path.exists("temp.docx"):
-        os.remove("temp.docx")
+        output_filename = f"{csv_dwg} {vessel['vesselName']} – SEEMP I-II Issue No. {issue_num}"
+        output_doc = f"{output_filename}.docx"
+        output_pdf = f"{output_filename}.pdf"
+        doc.save(output_doc)
+        print(f"✅ Saved {output_doc}")
 
-    #convert(output_doc, output_pdf)
+        if os.path.exists("temp.docx"):
+            os.remove("temp.docx")
+        
+        # Convert to PDF
+        # convert(output_doc, output_pdf)
+        # print(f"✅ Saved {output_pdf}")
+        
+    else:
+        doc = Document(WORD_TEMPLATE)
+        issue_num = get_issue_number(doc)
+
+        output_filename = f"{csv_dwg} {vessel['vesselName']} – SEEMP PART III Issue No. {issue_num}"
+        output_doc = f"{output_filename}.docx"
+        output_pdf = f"{output_filename}.pdf"
+
+        process_docx(WORD_TEMPLATE, output_doc, placeholders)
+        print(f"✅ Saved {output_doc}")
+        
+        # Convert to PDF
+        # convert(output_doc, output_pdf)
+        # print(f"✅ Saved {output_pdf}")
