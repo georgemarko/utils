@@ -1,5 +1,6 @@
 # Ignore Microsoft Word documents and CSV data files
 *.docx
+*.docx#
 *.csv
 __pycache__/
 credentials.py
