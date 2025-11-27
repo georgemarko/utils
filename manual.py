@@ -16,6 +16,9 @@ from credentials import MYUSERNAME, MYPASSWORD
 # Set to False for SEEMP PART III
 SEEMP_VERSION_1_2 = True
 
+# Include waste incinerator in tables
+INCLUDE_WASTE_INCINERATOR = True
+
 ######################################################
 
 ############## INPUTS ################################
@@ -270,10 +273,14 @@ def format_fuel_types(emission_sources, include_bio):
     for source in emission_sources:
         bio_value = "Biofuels"
         type_name = source.get("type")
+        
+        if "waste incinerator" in type_name.lower() and not INCLUDE_WASTE_INCINERATOR:
+            continue
+        
         if "boiler" in type_name.lower():
             row = {"TYPE": "Fired Boiler",
                    "HFO": "HFO",
-                   "LFO": "",
+                   "LFO": "LFO",
                    "MGO": "MGO / MDO"}
         elif type_name.lower() in ["inert gas generator", "waste incinerator"]:
             row = {"TYPE": type_name,
@@ -316,6 +323,10 @@ def format_emission_sources(emission_sources, verifier=None):
     normalized_sources = []
     for s in emission_sources:
         original_type = s.get("type", "Unknown").lower()
+        
+        if "waste incinerator" in original_type and not INCLUDE_WASTE_INCINERATOR:
+            continue
+        
         if "boiler" in original_type:
             normalized_type = "Fired Boiler"
         elif "hydraulic power pack" in original_type:
@@ -590,6 +601,9 @@ def format_other_emission_sources(emission_sources, fired_boiler_method=""):
     rows = []
     for src in emission_sources:
         type_name = src.get("type", "").lower()
+
+        if "waste incinerator" in type_name and not INCLUDE_WASTE_INCINERATOR:
+            continue
 
         if any(x in type_name for x in ["main engine", "auxiliary engine", "hydraulic power pack", "boiler"]):
             continue
