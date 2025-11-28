@@ -221,11 +221,11 @@ def format_vessel_placeholder(vessel, csv_dwg):
             value = " ".join(word.capitalize() for word in value.split('_'))
         elif field == "aEedi":
             eedi = vessel.get("aEedi")
-            value = f"{format_number(eedi)} gr CO2 / ton-mile" if eedi else "N/A"
+            value = f"{format_number(eedi)} gr CO₂ / ton-mile" if eedi else "N/A"
 
         elif field == "aEexi":
             eexi = vessel.get("aEexi")
-            value = f"{format_number(eexi)} gr CO2 / ton-mile" if eexi else "N/A"
+            value = f"{format_number(eexi)} gr CO₂ / ton-mile" if eexi else "N/A"
 
         elif field in ["grossTonnage", "netTonnage"]:
             num = vessel.get(field)
@@ -424,7 +424,7 @@ def format_emission_sources(emission_sources, verifier=None):
             sfocmax = source.get("sfocMaxValue")
             sfocunit = source.get("sfocUnit", "")
             if sfocv:
-                foc_label = "SFOC"
+                foc_label = "FOC" if "waste incinerator" in original_type or "inert gas generator" in original_type else "SFOC"
                 sfoc_text = f"{foc_label} {sfocv}"
                 if sfocmax:
                     sfoc_text += f"-{sfocmax}"
