@@ -93,7 +93,7 @@ PLACEHOLDER_MAP = {
     "{{EEXI}}": "aEexi",
     "{{ICECLASS}}": "iceClass",
     "{{BUILDER}}": "shipbuilder",
-    "{{YEAR}}": "deliveryDate",
+    "{{YEAR}}": "deliveryYear",
     "{{LENGTHOA}}": "overallLength",
     "{{LENGTHBP}}": "lengthBp",
     "{{BREADTH}}": "breadth",
@@ -259,10 +259,8 @@ def format_vessel_placeholder(vessel, csv_dwg):
             for part in parts:
                 val = val.get(part, {})
             value = val if isinstance(val, str) else str(val)
-        elif field == "deliveryDate":
-            value = vessel.get("deliveryDate", "N/A")
-            if value != "N/A" and value:
-                value = value.split("T")[0].split("-")[0]
+        elif field == "deliveryYear":
+            value = vessel.get("deliveryYear", "N/A")
         else:
             value = vessel.get(field, "N/A")
 
