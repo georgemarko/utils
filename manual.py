@@ -26,7 +26,7 @@ INCLUDE_WASTE_INCINERATOR = True
 # If SELECT_ONE_IMO is True then only the VESSEL_IMO is used
 
 SELECT_ONE_IMO = True
-VESSEL_IMO = "9782259"
+VESSEL_IMO = "9543691"
 COMPANY_NAME = "COMPANY"
 
 ######################################################
@@ -236,13 +236,13 @@ def format_vessel_placeholder(vessel, csv_dwg):
         elif field == "deadWeightValue":
             num = vessel.get("deadWeight")
             if num is not None:
-                value = f"{num:,}"
+                value = f"{int(num):,}" if num == int(num) else f"{num:,}"
             else:
                 value = "N/A"
         elif field == "deadWeight":
             num = vessel.get(field)
             if num is not None:
-                val = f"{num:,}"
+                val = f"{int(num):,}" if num == int(num) else f"{num:,}"
                 value = f"{val} MT"
             else:
                 value = "N/A"
