@@ -318,6 +318,11 @@ ENGINE_CONFIG = {
     "hydraulic power pack": {"cylinders": 6, "stroke": 4}
 }
 
+import re
+
+def alphanumeric_key(s):
+    return [int(c) if c.isdigit() else c.lower() for c in re.split('([0-9]+)', s)]
+
 def format_emission_sources(emission_sources, verifier=None):
     lines = []
     source_type_order = ['main engine', 'auxiliary engine', 'boiler', 'inert gas generator', 'waste incinerator']
@@ -349,8 +354,8 @@ def format_emission_sources(emission_sources, verifier=None):
         nt = item['normalized_type'].lower()
         for idx, target in enumerate(source_type_order):
             if target in nt:
-                return idx
-        return len(source_type_order)
+                return (idx, alphanumeric_key(item['source'].get('identificationNumber', '')))
+        return (len(source_type_order), alphanumeric_key(item['source'].get('identificationNumber', '')))
     
     normalized_sources.sort(key=sort_key)
     
