@@ -323,6 +323,27 @@ import re
 def alphanumeric_key(s):
     return [int(c) if c.isdigit() else c.lower() for c in re.split('([0-9]+)', s)]
 
+def extract_cylinder_count(model):
+    if not model:
+        return None
+    
+    match = re.search(r'(\d+)', model)
+    if not match:
+        return None
+    
+    first_digit_group = match.group(1)
+    
+    if len(first_digit_group) >= 2:
+        return int(first_digit_group[:2])
+    elif len(first_digit_group) == 1:
+        digit_start_pos = match.start()
+        char_after_digit = model[digit_start_pos + 1:digit_start_pos + 2] if digit_start_pos + 1 < len(model) else ""
+        if char_after_digit and char_after_digit.isalpha():
+            return int(first_digit_group[0])
+        return int(first_digit_group[0])
+    
+    return None
+
 def format_emission_sources(emission_sources, verifier=None):
     lines = []
     source_type_order = ['main engine', 'auxiliary engine', 'boiler', 'inert gas generator', 'waste incinerator']
@@ -454,7 +475,13 @@ def format_emission_sources(emission_sources, verifier=None):
 
             if original_type in ENGINE_CONFIG:
                 cfg = ENGINE_CONFIG[original_type]
-                parts.append(f"{cfg['cylinders']}-cylinder, {cfg['stroke']}-stroke")
+                model = source.get("model", "")
+                cylinder_count = extract_cylinder_count(model)
+                
+                if cylinder_count is not None:
+                    parts.append(f"{cylinder_count}-cylinder, {cfg['stroke']}-stroke")
+                else:
+                    parts.append(f"{cfg['cylinders']}-cylinder, {cfg['stroke']}-stroke")
 
             details = ", ".join(parts)
 
